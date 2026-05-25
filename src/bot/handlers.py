@@ -7,14 +7,13 @@ from typing import Optional
 from aiogram import Bot, types, F
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
-from aiogram.exceptions import TelegramRetryError
 
-from config.loader import Config, reload_config
-from monitor.state_machine import ElectricityStatus
-from monitor.tcp_checker import TCPChecker
-from storage.events import EventStore
-from notifier.push_notifier import PushNotifier
-from keyboards import refresh_keyboard, stats_keyboard, confirm_clear_keyboard
+from ..config.loader import Config, reload_config
+from ..monitor.state_machine import ElectricityStatus
+from ..monitor.tcp_checker import TCPChecker
+from ..storage.events import EventStore
+from ..notifier.push_notifier import PushNotifier
+from .keyboards import refresh_keyboard, stats_keyboard, confirm_clear_keyboard
 
 logger = logging.getLogger(__name__)
 
@@ -77,8 +76,6 @@ async def _send_with_retry(bot: Bot, chat_id: int, text: str, **kwargs):
     """Send a message with retry handling."""
     try:
         await bot.send_message(chat_id, text, **kwargs)
-    except TelegramRetryError as e:
-        logger.warning("Telegram API retry error: %s", e)
     except Exception as e:
         logger.error("Failed to send message to %d: %s", chat_id, e)
 

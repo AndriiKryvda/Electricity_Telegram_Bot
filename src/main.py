@@ -8,14 +8,15 @@ from pathlib import Path
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.filters import Command
 
-from config.loader import load_config, Config, ConfigValidationError
-from config.watcher import ConfigWatcher
-from monitor.state_machine import StateMachine, ElectricityStatus
-from monitor.tcp_checker import TCPChecker
-from storage.events import EventStore
-from notifier.push_notifier import PushNotifier
-from bot.handlers import cmd_status, cmd_stats, cmd_reload, cmd_help, handle_callback
+from .config.loader import load_config, Config, ConfigValidationError
+from .config.watcher import ConfigWatcher
+from .monitor.state_machine import StateMachine, ElectricityStatus
+from .monitor.tcp_checker import TCPChecker
+from .storage.events import EventStore
+from .notifier.push_notifier import PushNotifier
+from .bot.handlers import cmd_status, cmd_stats, cmd_reload, cmd_help, handle_callback
 
 
 # Configure logging
