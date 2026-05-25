@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  electricity-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: electricity-bot
+    restart: unless-stopped
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - bot-data:/app/data
+    environment:
+      - TZ=${TZ:-UTC}
+    networks:
+      - bot-network
+
+volumes:
+  bot-data:
+    driver: local
+
+networks:
+  bot-network:
+    driver: bridge

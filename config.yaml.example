@@ -1,0 +1,19 @@
+# Electricity Status Telegram Bot Configuration
+# Copy this file to config.yaml and update with your settings
+
+# Telegram Bot Settings
+bot:
+  token: "YOUR_BOT_TOKEN_HERE"          # Get from @BotFather on Telegram
+  admin_user_ids:                         # Telegram user IDs who can use the bot
+    - 123456789
+    - 987654321
+
+# Home Device to Monitor
+device:
+  host: "192.168.1.100"                 # IP address or hostname of the smart device
+  port: 8080                            # TCP port (1-65535)
+  poll_interval: 60                     # Poll interval in seconds (30-120)
+
+# Server Settings
+server:
+  last_state_file: "./data/last_state.json"   # Path to restore state on restart

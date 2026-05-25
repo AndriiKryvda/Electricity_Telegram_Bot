@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Config files (sensitive)
+config.yaml
+.env
+
+# Data files
+data/*.db
+data/*.json
+data/*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker
+*.pid
