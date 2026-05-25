@@ -236,7 +236,7 @@ async def graceful_shutdown():
     logger.info("Bot shut down gracefully.")
 
 
-async def main():
+async def main(shutdown_event: asyncio.Event):
     """Main application entry point."""
     global context
 
@@ -251,16 +251,23 @@ async def main():
     # Start polling in background
     context._poll_task = asyncio.create_task(start_polling())
 
-    # Start long polling
+    # Start long polling in a task so we can monitor shutdown event
     logger.info("Starting bot long polling...")
+    polling_task = asyncio.create_task(
+        context.dispatcher.start_polling(context.bot)
+    )
+
+    # Wait for shutdown signal
+    await shutdown_event.wait()
+
+    # Cancel the polling task
+    polling_task.cancel()
     try:
-        await context.dispatcher.start_polling(context.bot)
+        await polling_task
     except asyncio.CancelledError:
         pass
-    except Exception as e:
-        logger.error("Polling error: %s", e, exc_info=True)
-    finally:
-        await graceful_shutdown()
+
+    await graceful_shutdown()
 
 
 if __name__ == "__main__":
@@ -268,18 +275,21 @@ if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
+    _shutdown_event = asyncio.Event()
+
     def signal_handler(signum, frame):
         logger.info("Received signal %d, shutting down...", signum)
-        loop.create_task(graceful_shutdown())
-        loop.stop()
+        # Set the shutdown event to unblock main()
+        loop.call_soon_threadsafe(_shutdown_event.set)
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
     try:
-        loop.run_until_complete(main())
+        loop.run_until_complete(main(_shutdown_event))
     except KeyboardInterrupt:
-        loop.run_until_complete(graceful_shutdown())
+        loop.call_soon_threadsafe(_shutdown_event.set)
+        loop.run_until_complete(main(_shutdown_event))
     finally:
         if loop.is_running():
             loop.close()
