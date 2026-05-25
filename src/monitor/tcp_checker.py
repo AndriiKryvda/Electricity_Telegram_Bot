@@ -66,8 +66,11 @@ class TCPChecker:
                 timeout=self._timeout
             )
             # Connection successful, close immediately
-            reader.close()
-            await reader.wait_closed()
+            try:
+                await reader.aclose()
+            except Exception:
+                # aclose() may raise if already closed (Python version compatibility)
+                pass
             duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
 
             logger.debug(
