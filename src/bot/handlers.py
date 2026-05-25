@@ -80,6 +80,18 @@ async def _send_with_retry(bot: Bot, chat_id: int, text: str, **kwargs):
         logger.error("Failed to send message to %d: %s", chat_id, e)
 
 
+async def _edit_with_retry(bot: Bot, chat_id: int, message_id: int, text: str, **kwargs):
+    """Edit a message, silently ignoring 'message not modified' errors."""
+    try:
+        await bot.edit_message_text(text, chat_id=chat_id, message_id=message_id, **kwargs)
+    except Exception as e:
+        error_str = str(e).lower()
+        if "message is not modified" in error_str or "can't update the message" in error_str:
+            logger.debug("Message not modified, skipping edit for msg %d", message_id)
+        else:
+            logger.error("Failed to edit message %d: %s", message_id, e)
+
+
 # Status command handler
 async def cmd_status(message: Message, bot: Bot, config: Config = None, state_machine = None, event_store: EventStore = None):
     """Handle /status command."""
@@ -192,10 +204,11 @@ async def handle_callback(callback: CallbackQuery, bot: Bot, config: Config = No
                           state_machine = None, event_store: EventStore = None, notifier: PushNotifier = None):
     """Handle inline keyboard callback queries."""
     if state_machine is None or event_store is None or notifier is None:
-        await bot.edit_message_text(
+        await _edit_with_retry(
+            bot,
+            callback.message.chat.id,
+            callback.message.message_id,
             "⚠️ Service unavailable. Please try again later.",
-            chat_id=callback.message.chat.id,
-            message_id=callback.message.message_id,
         )
         await callback.answer()
         return
@@ -213,10 +226,11 @@ async def handle_callback(callback: CallbackQuery, bot: Bot, config: Config = No
         emoji = format_status_emoji(status)
         text = f"{emoji} {format_status_text(status)}\n\n{format_last_check(state_machine.last_check_time)}"
 
-        await bot.edit_message_text(
+        await _edit_with_retry(
+            bot,
+            callback.message.chat.id,
+            callback.message.message_id,
             text,
-            chat_id=callback.message.chat.id,
-            message_id=callback.message.message_id,
             parse_mode="HTML",
             reply_markup=refresh_keyboard()
         )
@@ -240,10 +254,11 @@ async def handle_callback(callback: CallbackQuery, bot: Bot, config: Config = No
 
         if not events:
             text = header + "\u2139\uFE0F No events recorded yet."
-            await bot.edit_message_text(
+            await _edit_with_retry(
+                bot,
+                callback.message.chat.id,
+                callback.message.message_id,
                 text,
-                chat_id=callback.message.chat.id,
-                message_id=callback.message.message_id,
                 parse_mode="HTML",
                 reply_markup=stats_keyboard()
             )
@@ -265,19 +280,21 @@ async def handle_callback(callback: CallbackQuery, bot: Bot, config: Config = No
         lines.append("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500")
         text = "\n".join(lines)
 
-        await bot.edit_message_text(
+        await _edit_with_retry(
+            bot,
+            callback.message.chat.id,
+            callback.message.message_id,
             text,
-            chat_id=callback.message.chat.id,
-            message_id=callback.message.message_id,
             parse_mode="HTML",
             reply_markup=stats_keyboard()
         )
 
     elif data == "clear_events":
-        await bot.edit_message_text(
+        await _edit_with_retry(
+            bot,
+            callback.message.chat.id,
+            callback.message.message_id,
             "\u26A0\uFE0F Are you sure you want to clear all events?",
-            chat_id=callback.message.chat.id,
-            message_id=callback.message.message_id,
             reply_markup=confirm_clear_keyboard()
         )
 
@@ -287,10 +304,11 @@ async def handle_callback(callback: CallbackQuery, bot: Bot, config: Config = No
         emoji = format_status_emoji(status)
         text = f"{emoji} {format_status_text(status)}\n\n\u2705 All events cleared."
 
-        await bot.edit_message_text(
+        await _edit_with_retry(
+            bot,
+            callback.message.chat.id,
+            callback.message.message_id,
             text,
-            chat_id=callback.message.chat.id,
-            message_id=callback.message.message_id,
             parse_mode="HTML",
             reply_markup=stats_keyboard()
         )
