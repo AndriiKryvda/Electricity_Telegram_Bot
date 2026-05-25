@@ -81,8 +81,11 @@ async def _send_with_retry(bot: Bot, chat_id: int, text: str, **kwargs):
 
 
 # Status command handler
-async def cmd_status(message: Message, bot: Bot, config: Config, state_machine, event_store: EventStore):
+async def cmd_status(message: Message, bot: Bot, config: Config = None, state_machine = None, event_store: EventStore = None):
     """Handle /status command."""
+    if state_machine is None:
+        await _send_with_retry(bot, message.chat.id, "⚠️ Service unavailable. Please try again later.")
+        return
     status = state_machine.current_status
     emoji = format_status_emoji(status)
     text = f"{emoji} {format_status_text(status)}\n\n{format_last_check(state_machine.last_check_time)}"
@@ -95,8 +98,11 @@ async def cmd_status(message: Message, bot: Bot, config: Config, state_machine, 
 
 
 # Stats command handler
-async def cmd_stats(message: Message, bot: Bot, config: Config, state_machine, event_store: EventStore):
+async def cmd_stats(message: Message, bot: Bot, config: Config = None, state_machine = None, event_store: EventStore = None):
     """Handle /stats command."""
+    if state_machine is None or event_store is None:
+        await _send_with_retry(bot, message.chat.id, "⚠️ Service unavailable. Please try again later.")
+        return
     # Purge old events first
     await event_store.purge_old_events(3)
 
@@ -182,9 +188,18 @@ async def cmd_help(message: Message, bot: Bot):
 
 
 # Callback query handler
-async def handle_callback(callback: CallbackQuery, bot: Bot, config: Config,
-                         state_machine, event_store: EventStore, notifier: PushNotifier):
+async def handle_callback(callback: CallbackQuery, bot: Bot, config: Config = None,
+                          state_machine = None, event_store: EventStore = None, notifier: PushNotifier = None):
     """Handle inline keyboard callback queries."""
+    if state_machine is None or event_store is None or notifier is None:
+        await bot.edit_message_text(
+            "⚠️ Service unavailable. Please try again later.",
+            chat_id=callback.message.chat.id,
+            message_id=callback.message.message_id,
+        )
+        await callback.answer()
+        return
+
     data = callback.data
     user_id = callback.from_user.id
 

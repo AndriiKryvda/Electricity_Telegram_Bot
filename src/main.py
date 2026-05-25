@@ -19,6 +19,23 @@ from .notifier.push_notifier import PushNotifier
 from .bot.handlers import cmd_status, cmd_stats, cmd_reload, cmd_help, handle_callback
 
 
+# Dependency injection middleware
+class DepsMiddleware:
+    """Middleware that injects shared dependencies into handler data."""
+
+    async def __call__(self, handler, event, data):
+        # Inject shared objects into the event context
+        bot = data.get("bot")
+        if bot is not None and context.state_machine:
+            # Make deps available to handlers via the event context
+            data["config"] = context.config
+            data["state_machine"] = context.state_machine
+            data["event_store"] = context.event_store
+            data["notifier"] = context.notifier
+        return await handler(event, data)
+
+
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -102,6 +119,11 @@ async def initialize_bot():
 
 def register_handlers(dispatcher: Dispatcher):
     """Register all command and callback handlers."""
+    # Register dependency injection middleware
+    deps = DepsMiddleware()
+    dispatcher.message.middleware(deps)
+    dispatcher.callback_query.middleware(deps)
+
     # Command handlers
     dispatcher.message.register(cmd_status, Command("status"))
     dispatcher.message.register(cmd_stats, Command("stats"))
