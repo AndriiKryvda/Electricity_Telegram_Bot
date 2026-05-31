@@ -17,6 +17,7 @@ from .monitor.tcp_checker import TCPChecker
 from .storage.events import EventStore
 from .notifier.push_notifier import PushNotifier
 from .bot.handlers import cmd_status, cmd_stats, cmd_reload, cmd_help, handle_callback
+from aiogram.types import BotCommand
 
 
 # Dependency injection middleware
@@ -105,6 +106,14 @@ async def initialize_bot():
     async def on_status_change(new_status: ElectricityStatus, previous_status):
         if new_status in (ElectricityStatus.ON, ElectricityStatus.OFF):
             await context.notifier.notify_status_change(new_status.value)
+
+    # Set bot commands (top-level menu)
+    await context.bot.set_my_commands([
+        BotCommand(command="status", description="\u26A1 Show electricity status"),
+        BotCommand(command="stats", description="\U0001F4CA Show outage history"),
+        BotCommand(command="reload", description="\U0001F527 Reload configuration"),
+        BotCommand(command="help", description="\u2753 Show help message"),
+    ])
 
     # Register handlers
     register_handlers(context.dispatcher)

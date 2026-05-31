@@ -13,7 +13,7 @@ from ..monitor.state_machine import ElectricityStatus
 from ..monitor.tcp_checker import TCPChecker
 from ..storage.events import EventStore
 from ..notifier.push_notifier import PushNotifier
-from .keyboards import refresh_keyboard, stats_keyboard, confirm_clear_keyboard
+from .keyboards import refresh_keyboard, stats_keyboard, confirm_clear_keyboard, main_menu_keyboard, command_menu_keyboard
 
 logger = logging.getLogger(__name__)
 
@@ -196,7 +196,11 @@ async def cmd_help(message: Message, bot: Bot):
         "/reload - Reload configuration file\n"
         "/help - Show this help message"
     )
-    await _send_with_retry(bot, message.chat.id, text, parse_mode="HTML")
+    await _send_with_retry(
+        bot, message.chat.id, text,
+        parse_mode="HTML",
+        reply_markup=main_menu_keyboard()
+    )
 
 
 # Callback query handler
@@ -317,6 +321,102 @@ async def handle_callback(callback: CallbackQuery, bot: Bot, config: Config = No
         # Revert to stats view
         await callback.answer("Cleared.")
         # Don't change the keyboard, keep the confirm view
+
+    elif data == "menu_status":
+        # Quick status from menu
+        if state_machine is None:
+            await _edit_with_retry(
+                bot, callback.message.chat.id, callback.message.message_id,
+                "\u26A0\uFE0F Service unavailable.",
+            )
+            await callback.answer()
+            return
+        status = state_machine.current_status
+        emoji = format_status_emoji(status)
+        text = f"{emoji} {format_status_text(status)}\n\n{format_last_check(state_machine.last_check_time)}"
+        await _edit_with_retry(
+            bot, callback.message.chat.id, callback.message.message_id,
+            text,
+            parse_mode="HTML",
+            reply_markup=refresh_keyboard()
+        )
+        await callback.answer()
+
+    elif data == "menu_stats":
+        # Quick stats from menu
+        if state_machine is None or event_store is None:
+            await _edit_with_retry(
+                bot, callback.message.chat.id, callback.message.message_id,
+                "\u26A0\uFE0F Service unavailable.",
+            )
+            await callback.answer()
+            return
+        await event_store.purge_old_events(3)
+        status = state_machine.current_status
+        emoji = format_status_emoji(status)
+        header = f"{emoji} {format_status_text(status)}\n\n"
+        events = await event_store.get_events(50)
+        if not events:
+            text = header + "\u2139\uFE0F No events recorded yet."
+            await _edit_with_retry(
+                bot, callback.message.chat.id, callback.message.message_id,
+                text,
+                parse_mode="HTML",
+                reply_markup=stats_keyboard()
+            )
+            await callback.answer()
+            return
+        lines = [header, "\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500", "\u2B50 History:"]
+        for i, event in enumerate(events):
+            ts = event.timestamp.strftime('%d-%b-%Y %H:%M')
+            status_display = f"<code>{event.status}</code>"
+            duration = event.duration if event.duration else "N/A"
+            lines.append(f"<code>{ts}</code>  {status_display}  ({duration})")
+        lines.append("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500")
+        text = "\n".join(lines)
+        await _edit_with_retry(
+            bot, callback.message.chat.id, callback.message.message_id,
+            text,
+            parse_mode="HTML",
+            reply_markup=stats_keyboard()
+        )
+        await callback.answer()
+
+    elif data == "menu_reload":
+        # Quick reload from menu
+        try:
+            new_config = reload_config()
+            await _edit_with_retry(
+                bot, callback.message.chat.id, callback.message.message_id,
+                "\u2705 Configuration reloaded.",
+                reply_markup=command_menu_keyboard()
+            )
+        except Exception as e:
+            logger.error("Config reload failed: %s", e)
+            await _edit_with_retry(
+                bot, callback.message.chat.id, callback.message.message_id,
+                f"\u274C Config reload failed: {str(e)}",
+                reply_markup=command_menu_keyboard()
+            )
+        await callback.answer()
+
+    elif data == "menu_help":
+        # Show help from menu
+        text = (
+            "\u26A1 <b>Electricity Status Bot</b>\n\n"
+            "<b>Available commands:</b>\n"
+            "/status - Show current electricity status\n"
+            "/stats - Show electricity status and outage history\n"
+            "/reload - Reload configuration file\n"
+            "/help - Show this help message"
+        )
+        await _edit_with_retry(
+            bot, callback.message.chat.id, callback.message.message_id,
+            text,
+            parse_mode="HTML",
+            reply_markup=main_menu_keyboard()
+        )
+        await callback.answer()
 
     # Acknowledge the callback
     await callback.answer()
